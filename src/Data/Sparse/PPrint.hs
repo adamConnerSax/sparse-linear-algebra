@@ -31,7 +31,7 @@ class PrintDense a where
   prd0 :: a -> IO ()
 
 newline :: IO ()
-newline = putStrLn ""  
+newline = putStrLn ""
 
 
 -- | Pretty printing options: total length in # digits (including the decimal point), # of decimal digits
@@ -55,7 +55,7 @@ printDN l n = printNpad l n f where
 
 
 -- | Pretty print an array of complex numbers
-printCN :: (PrintfArg a, Epsilon a, Epsilon (Complex a), Ord a) =>
+printCN :: (RealFloat a, PrintfArg a, Epsilon a, Epsilon (Complex a), Ord a) =>
      Int -> Int -> PPrintOptions -> [Complex a] -> String
 printCN l n = printNpad l n f where
   f o x | nearZero (re x) && isNz (imagPart x) =
@@ -73,21 +73,21 @@ printCN l n = printNpad l n f where
 -- | printf an array of items with padding space to render a fixed column width
 printNpad ::
      Int     -- ^ Length of list to be provided
-     -> Int  -- ^ 
+     -> Int  -- ^
      -> (PPrintOptions -> a -> String)
      -> PPrintOptions -> [a] -> String
 printNpad llen nmax f o@PPOpts{..} xxl = commas [h,l] where
   h = commas $ take hlen ll
   l = last ll
   hlen = min (llen-1) (nmax-1)
-  ll = unfoldr g (0, xxl) 
+  ll = unfoldr g (0, xxl)
   g (i, x:xs) | i<nmax-2 || llen>=nmax-1 = Just (s', sxs)
               | i==nmax-2 = Just (dots', sxs)
               | null xs = Just (s', sxs)
-              | otherwise = Just ("", sxs) where                  
+              | otherwise = Just ("", sxs) where
                   s = f o x
                   sxs = (succ i, xs)
-                  s' = s ++ spaces (n - length s) 
+                  s' = s ++ spaces (n - length s)
                   dots' = dots ++ spaces (n - length dots)
   g (_, []) = Nothing
   n = pprintColWidth
@@ -106,12 +106,12 @@ prepD PPOpts{..} x = s where
     | otherwise = s0 ++ "f"
   s0 = concat ["%" , show nl, ".", show nd]
   -- s0 = "%1." ++ show nd
-  nl = pprintLen  
-  nd = pprintDec 
+  nl = pprintLen
+  nd = pprintDec
   nint = nl - nd  -- # of integer digits
   magLo = 10 ** (- fromIntegral nd)
   magHi = 10 ** fromIntegral nint
-            
+
 
 
 -- | printf format string for a Complex
@@ -125,14 +125,14 @@ prepC opts (r :+ i) = prepD opts r ++ oi where
 
 
 
-    
+
 
 -- | Helpers
 
 spaces :: Int -> String
 spaces n = replicate n ' '
 
-commas :: [String] -> String    
+commas :: [String] -> String
 commas = intercalate ", "
 
 re :: Complex a -> a

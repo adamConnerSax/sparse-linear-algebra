@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts, TypeFamilies, MultiParamTypeClasses, FlexibleInstances  #-}
 {-# language RankNTypes #-}
+{-# LANGUAGE TypeOperators #-}
 -- {-# language ApplicativeDo #-}
 -- {-# OPTIONS_GHC -O2 -rtsopts -with-rtsopts=-K32m -prof#-}
 {-|
@@ -15,7 +16,7 @@ module Numeric.LinearAlgebra.Sparse
          -- ** Iterative methods
          (<\>),
          -- -- ** Preconditioners
-         -- jacobiPre, ilu0Pre, mSsorPre,   
+         -- jacobiPre, ilu0Pre, mSsorPre,
          -- *** Moore-Penrose pseudoinverse
          pinv,
          -- ** Direct methods
@@ -30,13 +31,13 @@ module Numeric.LinearAlgebra.Sparse
          -- eigsArnoldi,
          -- * Matrix factorization algorithms
          -- ** QR
-         -- qr, 
+         -- qr,
          -- ** LU
          lu,
          -- ** Cholesky
-         -- chol, 
+         -- chol,
          -- ** Arnoldi iteration
-         arnoldi,    
+         arnoldi,
          -- * Utilities
          -- ** Givens' rotation
          givens,
@@ -50,7 +51,7 @@ module Numeric.LinearAlgebra.Sparse
          -- -- * Random arrays
          -- randArray,
          -- -- * Random matrices and vectors
-         -- randMat, randVec, 
+         -- randMat, randVec,
          -- -- ** Sparse "
          -- randSpMat, randSpVec,
          -- * Creation and conversion of sparse data
@@ -86,7 +87,7 @@ module Numeric.LinearAlgebra.Sparse
          nearZero, nearOne, isNz,
          -- * Operators
          -- ** Scaling
-         (.*), (./), 
+         (.*), (./),
          -- ** Inner product
          (<.>),
          -- ** Matrix-vector product
@@ -112,7 +113,7 @@ module Numeric.LinearAlgebra.Sparse
          -- untilConvergedG0,
          -- -- untilConvergedG, untilConvergedGM,
          -- modifyInspectGuarded, modifyInspectGuardedM,
-         modifyInspectGuardedM, 
+         modifyInspectGuardedM,
          -- IterationConfig (..),
          modifyUntil, modifyUntilM,
          -- * Internal
@@ -121,7 +122,7 @@ module Numeric.LinearAlgebra.Sparse
          -- * Exceptions
          PartialFunctionError,InputError, OutOfBoundsIndexError,
          OperandSizeMismatch, MatrixException, IterationException
-             
+
        )
        where
 
@@ -130,7 +131,7 @@ import Control.Exception.Common
 import Control.Iterative
 import Data.Sparse.Common
 
-import Control.Monad.Catch 
+import Control.Monad.Catch
 import qualified Control.Monad.Log as L (Handler, WithSeverity(..), Severity(..))
 import Data.Typeable
 
@@ -138,7 +139,7 @@ import Data.Typeable
 
 import Control.Monad.State.Strict
 import Control.Monad.Log (Handler)
-import qualified Control.Monad.Trans.State  as MTS 
+import qualified Control.Monad.Trans.State  as MTS
 import Data.Complex
 
 import qualified Data.Sparse.Internal.IntM as I
@@ -163,14 +164,14 @@ type Num' x = (Epsilon x, Elt x, Show x, Ord x, Typeable x)
 -- conditionNumberSM m = do
 --   (_, r) <- qr m
 --   let
---    u = extractDiagDense r 
+--    u = extractDiagDense r
 --    lmax = abs (maximum u)
 --    lmin = abs (minimum u)
---    kappa = lmax / lmin                     
+--    kappa = lmax / lmin
 --   if nearZero lmin
 --   then throwM (HugeConditionNumber "conditionNumberSM" kappa)
---   else return kappa 
-                          
+--   else return kappa
+
 
 
 
@@ -224,19 +225,19 @@ hhRefl = hhMat 2
 
 
 
-                  
 
--- | Givens matrix : a planar rotation embedded in R^n. 
+
+-- | Givens matrix : a planar rotation embedded in R^n.
 --
--- >>> aa = fromListSM 
+-- >>> aa = fromListSM
 -- >>> g <- givens aa 1 0
--- 
+--
 -- Row version of the method: given a matrix element below the diagonal, indexed (i,j), choose a row index i' that is below the diagonal as well and distinct from i such that the corresponding element is nonzero.
 --
 -- To zero out entry A(i, j) we must find row i' such that A(i', j) is non-zero but A has zeros in row i' for all column indices < j.
--- 
+--
 -- NB: The Givens' matrix differs from Identity in 4 entries
--- 
+--
 -- NB2: The form of a Complex rotation matrix in R^2 is as follows (@*@ indicates complex conjugation):
 --
 -- @
@@ -246,7 +247,7 @@ hhRefl = hhMat 2
 -- @
 {-# inline givens #-}
 givens :: (Elt a, MonadThrow m) => SpMatrix a -> IxRow -> IxCol -> m (SpMatrix a)
-givens aa i j 
+givens aa i j
   | isValidIxSM aa (i,j) && nrows aa >= ncols aa = do
       i' <- candidateRows' (immSM aa) i j
       return $ givensMat aa i i' j
@@ -267,7 +268,7 @@ givens aa i j
                                       firstNZColumn row j) mm
     firstNZColumn m k = isJust (I.lookup k m) &&
                         isNothing (I.lookupLT k m)
-    
+
 
 -- | Givens coefficients and norm of associated vector
 givensCoef :: Elt t => t -> t -> (t, t, t)
@@ -284,7 +285,7 @@ hypot x y = sqrt (mag2 x + mag2 y) where
 
 
 
-  
+
 
 
 -- * QR decomposition
@@ -302,9 +303,9 @@ However, we must also accumulate the `G_i` in order to build `Q`, and the presen
 --       Epsilon a, MonadThrow m, MonadLog String m) =>
 --      SpMatrix a
 --      -> m (SpMatrix a, SpMatrix a) -- ^ Q, R
--- qr mm = do 
+-- qr mm = do
 --      (qt, r, _) <- modifyUntilM' config haltf qrstepf gminit
---      return (transpose qt, r) 
+--      return (transpose qt, r)
 --   where
 --     gminit = (eye (nrows mm), mm, subdiagIndicesSM mm)
 --     haltf (_, _, iis) = null iis
@@ -319,7 +320,7 @@ However, we must also accumulate the `G_i` in order to build `Q`, and the presen
 --         let
 --           qmatt' = g #~# qmatt  -- update Q'
 --           m' = g #~# m          -- update R
---         return (qmatt', m', tail iis)    
+--         return (qmatt', m', tail iis)
 
 
 
@@ -362,28 +363,28 @@ However, we must also accumulate the `G_i` in order to build `Q`, and the presen
 --   (q, h) <- arnoldi aa b nitermax
 --   (o, r) <- qr h
 --   return (q, o, extractDiagDense r)
-  
 
 
 
--- * Householder vector 
+
+-- * Householder vector
 
 -- (Golub & Van Loan, Alg. 5.1.1, function `house`)
 hhV :: (Scalar (SpVector t) ~ t, Elt t, InnerSpace (SpVector t), Epsilon t) =>
      SpVector t -> (SpVector t, t)
 hhV x = (v, beta) where
   tx = tailSV x
-  sigma = tx <.> tx 
+  sigma = tx <.> tx
   vtemp = singletonSV 1 `concatSV` tx
   (v, beta) | nearZero sigma = (vtemp, 0)
             | otherwise = let mu = sqrt (headSV x**2 + sigma)
                               xh = headSV x
                               vh | mag xh <= 1 = xh - mu
                                  | otherwise = - sigma / (xh + mu)
-                              vnew = (1 / vh) `scale` insertSpVector 0 vh vtemp     
+                              vnew = (1 / vh) `scale` insertSpVector 0 vh vtemp
                           in (vnew, 2 * xh**2 / (sigma + vh**2))
 
-                         
+
 
 
 
@@ -426,11 +427,11 @@ SVD of A, Golub-Kahan method
 --   return lfin
 --   where
 --    oops i = throwM (NeedsPivoting "chol" (unwords ["L", show (i,i)]) :: MatrixException Double)
---    cholUpd aa (i, ll) = do 
+--    cholUpd aa (i, ll) = do
 --      sd <- cholSDRowUpd aa ll i  -- update subdiagonal entries
 --      ll' <- cholDiagUpd aa sd i  -- update diagonal entries
 --      return (i + 1, ll')
---    cholSDRowUpd aa ll i = do 
+--    cholSDRowUpd aa ll i = do
 --      lrs <- fromListSV (i + 1) <$> onRangeSparseM cholSubDiag [0 .. i-1]
 --      return $ insertRow ll lrs i where
 --        cholSubDiag j | isNz ljj = return $ 1/ljj*(aij - inn)
@@ -440,7 +441,7 @@ SVD of A, Golub-Kahan method
 --           aij = aa @@! (i, j)
 --           inn = contractSub ll ll i j (j - 1)
 --    cholDiagUpd aa ll i = do
---      cd <- cholDiag 
+--      cd <- cholDiag
 --      return $ insertSpMatrix i i cd ll where
 --        cholDiag | i == 0 = sqrt <$> aai
 --                 | otherwise = do
@@ -453,7 +454,7 @@ SVD of A, Golub-Kahan method
 --               | otherwise = oops i
 --             where
 --              aaii = aa @@! (i,i)
-                 
+
 
 
 
@@ -473,7 +474,7 @@ SVD of A, Golub-Kahan method
 -- * LU factorization
 
 -- | Given a matrix A, returns a pair of matrices (L, U) where L is lower triangular and U is upper triangular such that L U = A .
--- 
+--
 -- Implements the Doolittle algorithm, which sets the diagonal of the L matrix to ones and expects all diagonal entries of A to be nonzero. Apply pivoting (row or column permutation) to enforce a nonzero diagonal of the A matrix (the algorithm throws an appropriate exception otherwise).
 lu :: (Scalar (SpVector t) ~ t, Elt t, VectorSpace (SpVector t), Epsilon t,
         MonadThrow m) =>
@@ -489,7 +490,7 @@ lu aa = do
           l0 = insertCol (eye n) (extractSubCol aa 0 (1, n-1) ./ u00 ) 0
           u0 = insertRow (zeroSM n n) (extractRow aa 0) 0   -- initial U
           u00 = u0 @@! (0,0)  -- make sure this is non-zero by applying permutation
-      luUpd (i, l, u) = do -- (i + 1, l', u') 
+      luUpd (i, l, u) = do -- (i + 1, l', u')
         u' <- uUpd aa n (i, l, u)  -- update U
         l' <- lUpd (i, l, u') -- update L
         return (i + 1, l', u')
@@ -510,12 +511,12 @@ lu aa = do
             where
              a = aa @@! (i, j)
              ujj = umat @@! (j , j)   -- NB this must be /= 0
-             p = contractSub lmat umat i j (i - 1)    
+             p = contractSub lmat umat i j (i - 1)
   s0 <- luInit
   (ixf, lf, uf) <- MTS.execStateT (modifyUntilM q luUpd) s0
   ufin <- uUpd aa n (ixf, lf, uf)   -- final U update
   return (lf, ufin)
-    
+
 
 
 
@@ -531,7 +532,7 @@ lu aa = do
 --           l0 = insertCol (eye n) ((extractSubCol aa 0 (1, n-1)) ./ u00 ) 0
 --           u0 = insertRow (zeroSM n n) (extractRow aa 0) 0   -- initial U
 --           u00 = u0 @@! (0,0)  -- make sure this is non-zero by applying permutation
---       luUpd (i, l, u) = do -- (i + 1, l', u') 
+--       luUpd (i, l, u) = do -- (i + 1, l', u')
 --         u' <- uUpd aa n (i, l, u)  -- update U
 --         l' <- lUpd (i, l, u') -- update L
 --         return (i + 1, l', u')
@@ -552,7 +553,7 @@ lu aa = do
 --             where
 --              a = aa @@! (i, j)
 --              ujj = umat @@! (j , j)   -- NB this must be /= 0
---              p = contractSub lmat umat i j (i - 1)    
+--              p = contractSub lmat umat i j (i - 1)
 --   s0 <- luInit
 --   let config = IterConf 0 True vf prd2 where
 --         vf (_, l, u) = (l, u)
@@ -562,7 +563,7 @@ lu aa = do
 --   (ixf, lf, uf) <- modifyUntilM' config q luUpd s0
 --   ufin <- uUpd aa n (ixf, lf, uf)   -- final U update
 --   return (lf, ufin)
-         
+
 
 
 tmc4, tmc5, tmc6 :: SpMatrix (Complex Double)
@@ -573,13 +574,13 @@ tvc4 = vc [1:+3,2:+2,1:+9]
 tmc5 = fromListDenseSM 4 $ zipWith (:+) [16..31] [17,14..]
 
 
-tmc6 = fromListDenseSM 2 $ zipWith (:+) [1,2,3,4] [4,3,2,1] 
+tmc6 = fromListDenseSM 2 $ zipWith (:+) [1,2,3,4] [4,3,2,1]
 
 
 
 -- -- Produces the permutation matrix necessary to have a nonzero in position (iref, jref). This is used in the LU factorization
 -- permutAA :: Num b => IxRow -> IxCol -> SpMatrix a -> Maybe (SpMatrix b)
--- permutAA iref jref (SM (nro,_) mm) 
+-- permutAA iref jref (SM (nro,_) mm)
 --   | isJust (lookupIM2 iref jref mm) = Nothing -- eye nro
 --   | otherwise = Just $ permutationSM nro [head u] where
 --       u = IM.keys (ifilterIM2 ff mm)
@@ -604,7 +605,7 @@ tmc6 = fromListDenseSM 2 $ zipWith (:+) [1,2,3,4] [4,3,2,1]
 -- * Arnoldi iteration
 
 -- | Given a matrix A, a vector b and a positive integer `n`, this procedure finds the basis of an order `n` Krylov subspace (as the columns of matrix Q), along with an upper Hessenberg matrix H, such that A = Q^T H Q.
--- 
+--
 -- At the i`th iteration, it finds (i + 1) coefficients (the i`th column of the Hessenberg matrix H) and the (i + 1)`th Krylov vector.
 arnoldi :: (MatrixType (SpVector a) ~ SpMatrix a, V (SpVector a) ,
             Scalar (SpVector a) ~ a, Epsilon a, MonadThrow m) =>
@@ -615,16 +616,16 @@ arnoldi :: (MatrixType (SpVector a) ~ SpMatrix a, V (SpVector a) ,
 arnoldi aa b kn | n == nb = return (fromColsV qvfin, fromListSM (nmax + 1, nmax) hhfin)
                 | otherwise = throwM (MatVecSizeMismatchException "arnoldi" (m,n) nb)
   where
-  (qvfin, hhfin, nmax, _) = execState (modifyUntil tf arnoldiStep) arnInit 
+  (qvfin, hhfin, nmax, _) = execState (modifyUntil tf arnoldiStep) arnInit
   tf (_, _, ii, fbreak) = ii == kn || fbreak -- termination criterion
   (m, n) = (nrows aa, ncols aa)
   nb = dim b
   arnInit = (qv1, hh1, 1, False) where
       q0 = normalize2 b   -- starting basis vector
       aq0 = aa #> q0       -- A q0
-      h11 = q0 `dot` aq0          
+      h11 = q0 `dot` aq0
       q1nn = aq0 ^-^ (h11 .* q0)
-      hh1 = V.fromList [(0, 0, h11), (1, 0, h21)] where        
+      hh1 = V.fromList [(0, 0, h11), (1, 0, h21)] where
         h21 = norm2' q1nn
       q1 = normalize2 q1nn       -- q1 `dot` q0 ~ 0
       qv1 = V.fromList [q0, q1]
@@ -664,7 +665,7 @@ diagPartitions aa = (e,d,f) where
 
 -- ** Jacobi preconditioner
 
--- | The Jacobi preconditioner is just the reciprocal of the diagonal 
+-- | The Jacobi preconditioner is just the reciprocal of the diagonal
 jacobiPre :: Fractional a => SpMatrix a -> SpMatrix a
 jacobiPre x = recip <$> extractDiag x
 
@@ -696,7 +697,7 @@ mSsorPre aa omega = (l, r) where
   (e, d, f) = diagPartitions aa
   n = nrows e
   l = (eye n ^-^ scale omega e) ## reciprocal d
-  r = d ^-^ scale omega f 
+  r = d ^-^ scale omega f
 
 
 
@@ -753,7 +754,7 @@ mSsorPre aa omega = (l, r) where
 --         if isNz l00
 --           then return (insertSpVector 0 w0 $ zeroSV (dim b), 1)
 --           else oops (0 :: Int)
---   l0 <- lInit             
+--   l0 <- lInit
 --   (v, _) <- modifyUntilM' config q lStep l0
 --   return $ sparsifySV v
 
@@ -764,19 +765,19 @@ mSsorPre aa omega = (l, r) where
 
 -- triUpperSolve = triUpperSolve0 luSolveConfig
 
--- triUpperSolve0 conf uu w = do 
+-- triUpperSolve0 conf uu w = do
 --   let q (_, i) = i == (- 1)
 --       nw = svDim w
 --       oops i = throwM (NeedsPivoting "triUpperSolve" (unwords ["U", show (i, i)]) :: MatrixException Double)
 --       uStep (xx, i) = do
---         let uii = uu @@ (i, i) 
+--         let uii = uu @@ (i, i)
 --             wi = w @@ i
---             r = extractSubRow_RK uu i (i + 1, nw - 1) `dot` dropSV (i + 1) xx  
+--             r = extractSubRow_RK uu i (i + 1, nw - 1) `dot` dropSV (i + 1) xx
 --             xi = (wi - r) / uii
 --         if isNz uii
 --           then return (insertSpVector i xi xx, i - 1)
---           else oops i 
---       uInit = do 
+--           else oops i
+--       uInit = do
 --         let i = nw - 1
 --             u00 = uu @@! (i, i)
 --             w0 = w @@ i
@@ -784,15 +785,15 @@ mSsorPre aa omega = (l, r) where
 --         if isNz u00
 --           then return (insertSpVector i x0 (zeroSV nw), i - 1)
 --           else oops (0 :: Int)
---   u0 <- uInit             
+--   u0 <- uInit
 --   (x, _) <- modifyUntilM' conf q uStep u0
---   return $ sparsifySV x      
+--   return $ sparsifySV x
 
 
 
 
 
-    
+
 
 
 
@@ -810,7 +811,7 @@ mSsorPre aa omega = (l, r) where
 -- 3) the Krylov-subspace solution `yhat` is found by backsubstitution (since R is upper-triangular)
 -- 4) the approximate solution in the original space `xhat` is computed using the Krylov basis, `xhat = Q_n yhat`
 --
--- A common optimization involves interleaving the QR factorization (and the subsequent triangular solve) with the Arnoldi process (and employing an updating QR factorization which only requires one Givens' rotation at every update). 
+-- A common optimization involves interleaving the QR factorization (and the subsequent triangular solve) with the Arnoldi process (and employing an updating QR factorization which only requires one Givens' rotation at every update).
 
 -- gmres aa b = do
 --   let m = ncols aa
@@ -822,12 +823,12 @@ mSsorPre aa omega = (l, r) where
 --   let rhs' = takeSV (dim b' - 1) (transpose qh #> b')
 --       rh' = takeRows (nrows rh - 1) rh -- last row of `rh` is 0
 --   yhat <- triUpperSolve rh' rhs'
---   let qa' = takeCols (ncols qa - 1) qa  -- we don't use last column of Krylov basis   
+--   let qa' = takeCols (ncols qa - 1) qa  -- we don't use last column of Krylov basis
 --   return $ qa' #> yhat
 
 
 
-  
+
 -- ** CGNE
 
 data CGNE a =
@@ -867,7 +868,7 @@ data BCG a =
 bcgInit :: LinearVectorSpace (SpVector a) =>
      MatrixType (SpVector a) -> SpVector a -> SpVector a -> BCG a
 bcgInit aa b x0 = BCG x0 r0 r0hat p0 p0hat where
-  r0 = b ^-^ (aa #> x0)    
+  r0 = b ^-^ (aa #> x0)
   r0hat = r0
   p0 = r0
   p0hat = r0
@@ -875,7 +876,7 @@ bcgInit aa b x0 = BCG x0 r0 r0hat p0 p0hat where
 bcgStep :: (MatrixType (SpVector a) ~ SpMatrix a,
       LinearVectorSpace (SpVector a), InnerSpace (SpVector a),
       MatrixRing (SpMatrix a), Fractional (Scalar (SpVector a))) =>
-     SpMatrix a -> BCG a -> BCG a 
+     SpMatrix a -> BCG a -> BCG a
 bcgStep aa (BCG x r rhat p phat) = BCG x1 r1 rhat1 p1 phat1 where
     aap = aa #> p
     alpha = (r `dot` rhat) / (aap `dot` phat)
@@ -973,7 +974,7 @@ pinv aa b = (aa #^# aa) <\> atb where
 
 -- -- TFQMR is in LinearSolvers.Experimental for now
 -- | Iterative methods for linear systems
-data LinSolveMethod = GMRES_  -- ^ Generalized Minimal RESidual 
+data LinSolveMethod = GMRES_  -- ^ Generalized Minimal RESidual
                     | CGNE_   -- ^ Conjugate Gradient on the Normal Equations
                     | BCG_    -- ^ BiConjugate Gradient
                     | CGS_    -- ^ Conjugate Gradient Squared
@@ -991,7 +992,7 @@ data LinSolveMethod = GMRES_  -- ^ Generalized Minimal RESidual
 --        -- BICGSTAB_ -> solver "BICGSTAB" nits _xBicgstab (bicgstabStep aa r0hat) (bicgsInit aa b x0)
 --        -- BCG_ -> solver "BCG" nits _xBcg (bcgStep aa) (bcgInit aa b x0)
 --        CGS_ -> solver "CGS" nits _x  (cgsStep aa r0hat) (cgsInit aa b x0)
---        -- GMRES_ -> gmres aa b          
+--        -- GMRES_ -> gmres aa b
 --        CGNE_ -> solver "CGNE" nits _xCgne (cgneStep aa) (cgneInit aa b x0)
 --      r0hat = b ^-^ (aa #> x0)
 --      nits = 200
@@ -1005,11 +1006,11 @@ data LinSolveMethod = GMRES_  -- ^ Generalized Minimal RESidual
 
 -- solver' name fh flog nitermax lwindow fproj stepf initf = do
 --   xf <- untilConvergedG fh name nitermax lwindow fproj (flog . fproj) stepf initf
---   return $ fproj xf    
+--   return $ fproj xf
 
 class IterativeSolver s where
-  -- solver :: 
-  
+  -- solver ::
+
 
 
 
@@ -1047,7 +1048,7 @@ class IterativeSolver s where
 
 
 
-  
+
 
 
 
@@ -1057,8 +1058,7 @@ class IterativeSolver s where
 
 -- -- aa4 : eigenvalues 1 (mult.=2) and -1
 -- aa4 :: SpMatrix Double
--- aa4 = fromListDenseSM 3 [3,2,-2,2,2,-1,6,5,-4] 
+-- aa4 = fromListDenseSM 3 [3,2,-2,2,2,-1,6,5,-4]
 
 -- aa4c :: SpMatrix (Complex Double)
 -- aa4c = toC <$> aa4
-
